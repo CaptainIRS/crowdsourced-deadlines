@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="lib/d3.v7.min.js"></script>
+  <script src="lib/cal-heatmap.min.js"></script>
+  <link rel="stylesheet" href="lib/cal-heatmap.css">
+</head>
+
+<body>
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: monospace;
+      display: grid;
+      place-items: center;
+      height: 400px;
+      width: 300px;
+    }
+
+    .container {
+      text-align: center;
+      width: min(50%, 300px);
+    }
+
+    button {
+      margin: 5px;
+      padding: 5px;
+      border: 1px solid #000;
+      color: #000;
+      background-color: #fff;
+      font-family: monospace;
+      cursor: pointer;
+    }
+
+    #login-button,
+    #logout-button,
+    #calendar-button {
+      display: none;
+    }
+
+    .button-bar {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    #calendar-container {
+      display: none;
+    }
+
+    #calendar {
+      height: 200px;
+    }
+
+    label, input {
+      vertical-align: middle;
+    }
+  </style>
+  <div id="index-container" class="container">
+    <img src="images/icon128.png" alt="icon" width="100px">
+    <h1>Crowdsourced Deadlines</h1>
+    <p id="status">Checking status...</p>
+    <div class="button-bar">
+      <button id="calendar-button">Calendar</button>
+      <button id="login-button">Login</button>
+      <button id="logout-button">Logout</button>
+    </div>
+  </div>
+  <div id="calendar-container" class="container">
+    <div class="header">
+      <button id="back-button">Back</button>
+      <h1>Calendar</h1>
+    </div>
+    <div class="container" id="calendar"></div>
+    <input type="checkbox" id="show-unverified-checkbox">
+    <label for="show-unverified-checkbox">Show unverified</label>
+    <div class="button-bar">
+      <button id="prev-button">Previous</button>
+      <button id="next-button">Next</button>
+    </div>
+  </div>
+</body>
+<script src="index.js"></script>
+
+</html>

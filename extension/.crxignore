@@ -1,0 +1,8 @@
+.gitignore
+.crxignore
+.env
+.env.example
+manifest.template.json
+package.sh
+images/icon.png
+extension.zip

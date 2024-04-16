@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Failed</title>
+    <link rel="icon" href="/static/images/icon48.png">
+</head>
+
+<body>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: monospace;
+            display: grid;
+            place-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            text-align: center;
+            width: min(50%, 300px);
+        }
+
+        button {
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #000;
+            color: #000;
+            background-color: #fff;
+            cursor: pointer;
+            font-family: monospace;
+        }
+    </style>
+    <div class="container">
+        <img src="/static/images/icon.png" alt="icon" width="100px">
+        <h1>Crowdsourced Deadlines</h1>
+        <p>
+            Login Failed
+        </p>
+        <button onclick="window.location.href = '/login'">Retry Login</button>
+    </div>
+</body>
+
+</html>
