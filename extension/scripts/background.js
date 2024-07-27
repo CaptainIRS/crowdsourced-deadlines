@@ -6,6 +6,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "getFromBackend") {
     fetch(`${backendBaseUrl}${request.endpoint}`, {
       mode: "cors",
+      credentials: "include",
     })
       .then((response) => {
         if (response.ok) {
@@ -28,6 +29,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     fetch(`${backendBaseUrl}${request.endpoint}`, {
       method: "POST",
       mode: "cors",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },

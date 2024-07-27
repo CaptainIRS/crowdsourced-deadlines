@@ -17,6 +17,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 CAS_URL = os.getenv("CAS_URL")
 EXTENSION_ID = os.getenv("EXTENSION_ID")
 DATABASE_URI = os.getenv("DATABASE_URI")
+DAYS_RANGE = int(os.getenv("DAYS_RANGE"))
 USER_ID_KEY = "user_id"
 
 
@@ -31,8 +32,9 @@ app.permanent_session_lifetime = timedelta(days=30)
 app.config.update(
     SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SAMESITE="None",
     SESSION_COOKIE_NAME="crowdsource_session",
+    SESSION_COOKIE_PARTITIONED=True,
     SQLALCHEMY_DATABASE_URI=DATABASE_URI,
 )
 app.static_folder = "static"
@@ -72,6 +74,7 @@ class Deadlines(db.Model):
     assignment_id: Mapped[Integer] = mapped_column(Integer, primary_key=True)
     deadline: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
+
 @dataclass
 class UnverifiedDeadlines(db.Model):
     course_id: int
@@ -81,6 +84,7 @@ class UnverifiedDeadlines(db.Model):
     course_id: Mapped[Integer] = mapped_column(Integer, primary_key=True)
     assignment_id: Mapped[Integer] = mapped_column(Integer, primary_key=True)
     deadline: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
 
 @dataclass
 class CourseHeadcountSubmissions(db.Model):
@@ -109,6 +113,7 @@ class CourseHeadcounts(db.Model):
     course_id: Mapped[Integer] = mapped_column(Integer, primary_key=True)
     headcount: Mapped[Integer] = mapped_column(Integer, nullable=False)
 
+
 @dataclass
 class UnverifiedCourseHeadcounts(db.Model):
     course_id: int
@@ -116,6 +121,7 @@ class UnverifiedCourseHeadcounts(db.Model):
 
     course_id: Mapped[Integer] = mapped_column(Integer, primary_key=True)
     headcount: Mapped[Integer] = mapped_column(Integer, nullable=False)
+
 
 with app.app_context():
     db.create_all()
@@ -154,9 +160,10 @@ def welcome():
     return render_template("welcome.html", user_id=session[USER_ID_KEY])
 
 
-@app.get('/privacy-policy')
+@app.get("/privacy-policy")
 def privacy_policy():
-    return render_template('privacy_policy.html')
+    return render_template("privacy_policy.html")
+
 
 @app.get("/login")
 def login():
@@ -210,7 +217,7 @@ def get_course_headcount(course_id: int):
 @app.post("/courses/<course_id>/headcount")
 @login_required
 def add_course_headcount(course_id: int):
-    past_submission: CourseHeadcountSubmissions = (
+    past_submission: CourseHeadcountSubmissions | None = (
         CourseHeadcountSubmissions.query.filter_by(
             user_id=session[USER_ID_KEY], course_id=course_id
         ).first()
@@ -241,9 +248,9 @@ def add_course_headcount(course_id: int):
         ).first()
         course_headcount.headcount = submissions[0].headcount
         db.session.commit()
-    unverified_course_headcount: UnverifiedCourseHeadcounts = UnverifiedCourseHeadcounts.query.filter_by(
-        course_id=course_id
-    ).first()
+    unverified_course_headcount: UnverifiedCourseHeadcounts | None = (
+        UnverifiedCourseHeadcounts.query.filter_by(course_id=course_id).first()
+    )
     if unverified_course_headcount:
         unverified_course_headcount.headcount = request.json["headcount"]
         db.session.commit()
@@ -273,12 +280,19 @@ def get_deadline(course_id: int, assignment_id: int):
         .order_by(DeadlineSubmissions.updated_at.desc())
         .first()
     )
+    need_headcount = not (
+        CourseHeadcounts.query.filter_by(course_id=course_id).first()
+        or CourseHeadcountSubmissions.query.filter_by(
+            course_id=course_id, user_id=session[USER_ID_KEY]
+        ).first()
+    )
     last_submitted_deadline = last_submission.deadline if last_submission else None
     return jsonify(
         course_id=course_id,
         assignment_id=assignment_id,
         deadline=deadline,
         last_submitted_deadline=last_submitted_deadline,
+        need_headcount=need_headcount,
     )
 
 
@@ -286,7 +300,7 @@ def get_deadline(course_id: int, assignment_id: int):
 @login_required
 def add_deadline(course_id: int, assignment_id: int):
     deadline = datetime.fromtimestamp(request.json["deadline"] / 1000, tz=UTC)
-    past_submission: DeadlineSubmissions = DeadlineSubmissions.query.filter_by(
+    past_submission: DeadlineSubmissions | None = DeadlineSubmissions.query.filter_by(
         user_id=session[USER_ID_KEY], course_id=course_id, assignment_id=assignment_id
     ).first()
     if past_submission:
@@ -303,22 +317,28 @@ def add_deadline(course_id: int, assignment_id: int):
         db.session.commit()
     submissions: list[DeadlineSubmissions] = (
         DeadlineSubmissions.query.filter_by(
-            course_id=course_id, assignment_id=assignment_id
+            course_id=course_id, assignment_id=assignment_id, deadline=deadline
         )
         .order_by(DeadlineSubmissions.updated_at.desc())
         .limit(5)
         .all()
     )
-    if (
-        len(submissions) >= 5
-        and len(set([submission.deadline for submission in submissions])) == 1
-    ):
-        deadline: Deadlines = Deadlines.query.filter_by(
+    if len(submissions) == 5:
+        deadline: Deadlines | None = Deadlines.query.filter_by(
             course_id=course_id, assignment_id=assignment_id
         ).first()
-        deadline.deadline = submissions[0].deadline
-        db.session.commit()
-    unverified_deadline: UnverifiedDeadlines = UnverifiedDeadlines.query.filter_by(
+        if deadline:
+            deadline.deadline = submissions[0].deadline
+            db.session.commit()
+        else:
+            new_deadline = Deadlines(
+                course_id=course_id,
+                assignment_id=assignment_id,
+                deadline=deadline,
+            )
+            db.session.add(new_deadline)
+            db.session.commit()
+    unverified_deadline: UnverifiedDeadlines | None = UnverifiedDeadlines.query.filter_by(
         course_id=course_id, assignment_id=assignment_id
     ).first()
     if unverified_deadline:
@@ -334,7 +354,8 @@ def add_deadline(course_id: int, assignment_id: int):
         db.session.commit()
     return jsonify(message="success")
 
-@app.get('/deadlines/verified')
+
+@app.get("/deadlines/verified")
 def get_all_verified_deadlines():
     deadlines: list[Deadlines] = Deadlines.query.all()
     course_headcounts: list[CourseHeadcounts] = CourseHeadcounts.query.all()
@@ -347,21 +368,25 @@ def get_all_verified_deadlines():
     for deadline in deadlines:
         course_id = deadline.course_id
         headcount = headcount_dict.get(course_id, 0)
-        for offset in range(-5, 1):
-            date_offset = (deadline.deadline + timedelta(days=offset)).strftime('%Y-%m-%d')
-            date_headcounts_dict[date_offset] = date_headcounts_dict.get(date_offset, 0) + headcount * (6 - abs(offset)) / 6
+        for offset in range(-DAYS_RANGE, 1):
+            date_offset = (deadline.deadline + timedelta(days=offset)).strftime(
+                "%Y-%m-%d"
+            )
+            date_headcounts_dict[date_offset] = date_headcounts_dict.get(
+                date_offset, 0
+            ) + headcount * (DAYS_RANGE + 1 - abs(offset)) / (DAYS_RANGE + 1)
             max_headcount = max(max_headcount, date_headcounts_dict[date_offset])
     for date, headcount in date_headcounts_dict.items():
-        heatmap.append({
-            'date': date,
-            'headcount': headcount
-        })
+        heatmap.append({"date": date, "headcount": headcount})
     return jsonify(heatmap=heatmap, max_headcount=max_headcount)
 
-@app.get('/deadlines/unverified')
+
+@app.get("/deadlines/unverified")
 def get_all_unverified_deadlines():
     deadlines: list[UnverifiedDeadlines] = UnverifiedDeadlines.query.all()
-    course_headcounts: list[UnverifiedCourseHeadcounts] = UnverifiedCourseHeadcounts.query.all()
+    course_headcounts: list[UnverifiedCourseHeadcounts] = (
+        UnverifiedCourseHeadcounts.query.all()
+    )
     headcount_dict = {}
     for course_headcount in course_headcounts:
         headcount_dict[course_headcount.course_id] = course_headcount.headcount
@@ -371,15 +396,17 @@ def get_all_unverified_deadlines():
     for deadline in deadlines:
         course_id = deadline.course_id
         headcount = headcount_dict.get(course_id, 0)
-        for offset in range(-5, 1):
-            date_offset = (deadline.deadline + timedelta(days=offset)).strftime('%Y-%m-%d')
-            date_headcounts_dict[date_offset] = date_headcounts_dict.get(date_offset, 0) + headcount * (6 - abs(offset)) / 6
+        for offset in range(-DAYS_RANGE, 1):
+            date_offset = (deadline.deadline + timedelta(days=offset)).strftime(
+                "%Y-%m-%d"
+            )
+            date_headcounts_dict[date_offset] = date_headcounts_dict.get(
+                date_offset, 0
+            ) + headcount * (DAYS_RANGE + 1 - abs(offset)) / (DAYS_RANGE + 1)
             max_headcount = max(max_headcount, date_headcounts_dict[date_offset])
     for date, headcount in date_headcounts_dict.items():
-        heatmap.append({
-            'date': date,
-            'headcount': headcount
-        })
+        heatmap.append({"date": date, "headcount": headcount})
     return jsonify(heatmap=heatmap, max_headcount=max_headcount)
+
 
 app.run(port=9999, debug=True)

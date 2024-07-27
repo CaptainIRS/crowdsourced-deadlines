@@ -144,6 +144,11 @@ const afterWindowLoaded = () => {
               ? null
               : new Date(response.data["last_submitted_deadline"]).getTime() +
                 new Date().getTimezoneOffset() * 60000;
+          const needHeadcount = response.data["need_headcount"];
+          let headCountPrompt = "";
+          if (needHeadcount) {
+            headCountPrompt = `<br>Please contribute the headcount data of this course by visiting <a href="${window.location.origin}/user/index.php?id=${courseId}">the participants tab</a>.`;
+          }
           let message;
           console.log(
             "Deadline is " +
@@ -194,7 +199,7 @@ const afterWindowLoaded = () => {
               (response) => {
                 if (response.status === 200) {
                   console.log("Deadline submitted successfully");
-                  messageDiv.innerHTML = `Crowdsourced Deadlines: ${message}`;
+                  messageDiv.innerHTML = `Crowdsourced Deadlines: ${message}${headCountPrompt}`;
                   messageDiv.style.backgroundColor = "#cfefcf";
                   messageDiv.style.color = "black";
                 } else if (response.status === 403) {
@@ -211,7 +216,7 @@ const afterWindowLoaded = () => {
               }
             );
           } else {
-            messageDiv.innerHTML = `Crowdsourced Deadlines: Already up to date.`;
+            messageDiv.innerHTML = `Crowdsourced Deadlines: Already up to date.${headCountPrompt}`;
             messageDiv.style.backgroundColor = "rgba(0, 0, 0, .03)";
             messageDiv.style.color = "black";
           }

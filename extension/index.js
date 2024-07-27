@@ -1,41 +1,38 @@
 const baseUrl = chrome.runtime.getManifest()["backend_base_url"];
 document.addEventListener("DOMContentLoaded", function () {
-  fetch(`${baseUrl}/profile`)
-    .then((response) => {
-      if (response.ok) {
-        return response.json();
+  chrome.runtime.sendMessage(
+    {
+      action: "getFromBackend",
+      endpoint: "/profile",
+    },
+    (response) => {
+      if (response.status === 200) {
+        const userId = response.data["user_id"];
+        document.getElementById("status").innerHTML = `Logged in as ${userId}.`;
+        document.getElementById("login-button").style.display = "none";
+        document.getElementById("logout-button").style.display = "block";
+        document.getElementById("calendar-button").style.display = "block";
       } else if (response.status === 403) {
         document.getElementById("login-button").style.display = "block";
         document.getElementById("logout-button").style.display = "none";
         document.getElementById("calendar-button").style.display = "none";
-        throw new Error("You are not logged in. Please login to continue.");
+        document.getElementById("status").innerHTML =
+          "You are not logged in. Please login to continue.";
       } else {
         document.getElementById("login-button").style.display = "none";
         document.getElementById("logout-button").style.display = "none";
         document.getElementById("calendar-button").style.display = "none";
-        throw new Error(
-          "An error occurred when connecting to the server. Please try again later."
-        );
+        document.getElementById("status").innerHTML =
+          "An error occurred when connecting to the server. Please try again later.";
       }
-    })
-    .then((data) => {
-      const userId = data["user_id"];
-      document.getElementById("status").innerHTML = `Logged in as ${userId}.`;
-      document.getElementById("login-button").style.display = "none";
-      document.getElementById("logout-button").style.display = "block";
-      document.getElementById("calendar-button").style.display = "block";
-    })
-    .catch(
-      (error) =>
-        (document.getElementById("status").innerHTML =
-          error.message || "An error occurred.")
-    );
+    }
+  );
 });
 
 let cal, prevListener, nextListener;
 let calOptions = {
   data: {
-    source: `${baseUrl}/deadlines/verified`,
+    source: `${baseUrl}/deadlines/unverified`,
     requestInit: {
       credentials: "include",
       mode: "cors",
@@ -98,7 +95,11 @@ document.getElementById("calendar-button").addEventListener("click", () => {
   chrome.runtime.sendMessage(
     {
       action: "getFromBackend",
-      endpoint: "/deadlines/verified",
+      endpoint: `/deadlines/${
+        document.getElementById("show-unverified-checkbox").checked
+          ? "unverified"
+          : "verified"
+      }`,
     },
     (response) => {
       if (response.status === 200) {
