@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Crowdsourced Deadlines",
     "description": "Crowdsource assignment deadline data (from Moodle) to help schedule events when the most people are available.",
-    "version": "1.1",
+    "version": "1.2",
     "action": {
         "default_popup": "index.html",
         "default_icon": {
