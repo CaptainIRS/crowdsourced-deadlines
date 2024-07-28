@@ -1,4 +1,4 @@
-from datetime import timedelta, datetime, UTC
+from datetime import timedelta, datetime, timezone
 from functools import wraps
 from flask import Flask, jsonify, render_template, request, session, redirect, url_for
 from flask_cors import CORS
@@ -19,6 +19,7 @@ EXTENSION_ID = os.getenv("EXTENSION_ID")
 DATABASE_URI = os.getenv("DATABASE_URI")
 DAYS_RANGE = int(os.getenv("DAYS_RANGE"))
 USER_ID_KEY = "user_id"
+UTC = timezone.utc
 
 
 class Base(DeclarativeBase):
